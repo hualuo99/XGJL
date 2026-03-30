@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> 凋零花落 - AI全栈工程师 </title>
+    
+    <!-- 核心驱动：使用官方CDN（因为去掉了Google字体，现在解析会非常快） -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 图标库：更换为超高速的 Staticfile 镜像节点，解决原版外网加载慢的问题 -->
+    <link href="https://cdn.staticfile.net/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色和本地系统字体 (0延迟) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff7eb3',   
+                        secondary: '#ff758c', 
+                        accent: '#ffbd3f',    
+                        dark: '#884444',      
+                        light: '#fff0f5',     
+                    },
+                    fontFamily: {
+                        // 强制调用用户电脑本地系统字体，彻底告别字体下载卡顿
+                        sans:['"PingFang SC"', '"Microsoft YaHei"', 'system-ui', '-apple-system', 'sans-serif'],
+                        display:['"PingFang SC"', '"Microsoft YaHei"', 'system-ui', '-apple-system', 'sans-serif'],
+                        mono: ['Consolas', '"Courier New"', 'monospace'],
+                    },
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'bounce-slow': 'bounce 4s infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* === 基础样式 === */
+        html { scroll-behavior: smooth; }
+        body { 
+            background-color: #fff0f5; 
+            background-image: 
+                linear-gradient(rgba(255, 126, 179, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 126, 179, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            overflow-x: hidden;
+            cursor: default;
+        }
+
+        /* === 樱花画布 === */
+        #sakura-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+
+        /* === 软萌猫 (Soft Cat) 样式 === */
+        #pet-container { position: fixed; z-index: 9999; width: 100px; height: 100px; top: 50%; left: 50%; pointer-events: none; transform-origin: center bottom; }
+        .cat-wrapper { position: relative; width: 100%; height: 100%; pointer-events: auto; cursor: pointer; transition: transform 0.1s; }
+        .cat-body { position: absolute; bottom: 10px; left: 20px; width: 60px; height: 50px; background: #fff; border-radius: 50% 50% 40% 40% / 60% 60% 40% 40%; box-shadow: 0 4px 15px rgba(0,0,0,0.1); animation: breathe 3s ease-in-out infinite; transform-origin: bottom center; border: 2px solid #fff0f5; }
+        .cat-wrapper.running .cat-body { border-radius: 40% 60% 40% 40% / 40% 60% 40% 40%; animation: runBounce 0.3s infinite alternate; }
+        .cat-wrapper.sleeping .cat-body { height: 35px; width: 65px; border-radius: 50px 50px 20px 20px; transform: translateY(15px); animation: sleepBreathe 4s ease-in-out infinite; }
+        .cat-ear { position: absolute; top: -12px; width: 18px; height: 25px; background: #fff; border-radius: 4px 4px 0 0; border: 1px solid #fff0f5; border-bottom: none; }
+        .cat-ear.left { left: 5px; transform: rotate(-20deg); }
+        .cat-ear.right { right: 5px; transform: rotate(20deg); }
+        .cat-ear::after { content: ''; position: absolute; top: 5px; left: 4px; width: 10px; height: 15px; background: #ffb6c1; border-radius: 2px; opacity: 0.6; }
+        .cat-face { position: relative; top: 18px; left: 0; width: 100%; height: 20px; display: flex; justify-content: center; gap: 20px; }
+        .cat-eye { width: 6px; height: 6px; background: #444; border-radius: 50%; animation: blink 4s infinite; }
+        .cat-wrapper.sleeping .cat-eye { height: 2px; width: 8px; background: transparent; border-bottom: 2px solid #444; border-radius: 0; animation: none; margin-top: 5px; }
+        .cat-blush { position: absolute; top: 8px; width: 8px; height: 5px; background: #ffb6c1; border-radius: 50%; opacity: 0.6; }
+        .cat-blush.left { left: 12px; } .cat-blush.right { right: 12px; }
+        .cat-tail { position: absolute; bottom: 8px; right: -10px; width: 12px; height: 35px; background: #fff; border-radius: 10px; transform-origin: bottom left; transform: rotate(30deg); animation: tailWag 2s ease-in-out infinite; z-index: -1; border: 1px solid #fff0f5; }
+        .cat-wrapper.running .cat-tail { transform: rotate(60deg); animation: tailWag 0.5s ease-in-out infinite; }
+        .cat-leg { position: absolute; bottom: -4px; width: 12px; height: 10px; background: #fff; border-radius: 0 0 5px 5px; z-index: -1; }
+        .cat-leg.l1 { left: 10px; } .cat-leg.l2 { left: 20px; } .cat-leg.r1 { right: 20px; } .cat-leg.r2 { right: 10px; }
+        .cat-wrapper.running .cat-leg.l1, .cat-wrapper.running .cat-leg.r2 { animation: legMove 0.3s infinite alternate; }
+        .cat-wrapper.running .cat-leg.l2, .cat-wrapper.running .cat-leg.r1 { animation: legMove 0.3s infinite alternate-reverse; }
+        .zzz-bubble { position: absolute; top: -20px; right: 0; font-family: 'Comic Sans MS', cursive; font-size: 1rem; color: #ff7eb3; opacity: 0; }
+        .cat-wrapper.sleeping .zzz-bubble { animation: zzzFloat 2s ease-in-out infinite; opacity: 1; }
+        .pet-bubble { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); background: white; border: 2px solid #ff7eb3; padding: 5px 12px; border-radius: 12px; font-size: 0.8rem; color: #884444; font-weight: bold; font-family: sans-serif; white-space: nowrap; opacity: 0; pointer-events: none; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .pet-bubble::after { content:''; position: absolute; bottom:-6px; left:50%; transform:translateX(-50%); border-width:6px 6px 0; border-style:solid; border-color:#ff7eb3 transparent transparent transparent; }
+        .pet-bubble.show { opacity: 1; top: -50px; }
+
+        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02, 0.98); } }
+        @keyframes runBounce { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
+        @keyframes blink { 0%, 96%, 100% { transform: scaleY(1); } 98% { transform: scaleY(0.1); } }
+        @keyframes tailWag { 0%, 100% { transform: rotate(30deg); } 50% { transform: rotate(50deg); } }
+        @keyframes legMove { 0% { transform: translateY(0); } 100% { transform: translateY(-5px); } }
+        @keyframes zzzFloat { 0% { transform: translateY(0) translateX(0) scale(0.8); opacity:0; } 50% { opacity:1; } 100% { transform: translateY(-20px) translateX(10px) scale(1.2); opacity:0; } }
+        @keyframes sleepBreathe { 0%, 100% { transform: translateY(15px) scale(1); } 50% { transform: translateY(15px) scale(1.05, 0.95); } }
+        @keyframes petJump { 0% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.1, 0.9); } 100% { transform: translateY(0) scale(1); } }
+        
+        .text-shadow { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1); }
+        .gradient-text { -webkit-background-clip: text; background-clip: text; color: transparent; background-image: linear-gradient(to right, #ff7eb3, #ff758c); }
+    </style>
+</head>
+
+<body class="text-slate-700 font-sans">
+    
+    <!-- 🌸 樱花画布 -->
+    <canvas id="sakura-canvas"></canvas>
+
+    <!-- 🐱 软萌猫 -->
+    <div id="pet-container" onclick="petInteraction()">
+        <div class="cat-wrapper" id="cat-wrapper">
+            <div class="cat-body">
+                <div class="cat-ear left"></div>
+                <div class="cat-ear right"></div>
+                <div class="cat-face">
+                    <div class="cat-eye"></div>
+                    <div class="cat-eye"></div>
+                    <div class="cat-blush left"></div>
+                    <div class="cat-blush right"></div>
+                </div>
+                <div class="cat-leg l1"></div>
+                <div class="cat-leg l2"></div>
+                <div class="cat-leg r1"></div>
+                <div class="cat-leg r2"></div>
+                <div class="cat-tail"></div>
+            </div>
+            <div class="zzz-bubble">Zzz...</div>
+        </div>
+        <div id="pet-bubble" class="pet-bubble">喵?</div>
+    </div>
+
+    <!-- 导航栏 -->
+    <nav id="navbar" class="fixed w-full z-50 transition-all duration-300 bg-white/70 backdrop-blur-md border-b border-white shadow-sm">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="#" class="flex items-center space-x-2 group">
+                <span class="text-primary text-2xl group-hover:rotate-12 transition-transform"><i class="fa fa-code"></i></span>
+                <span class="font-display font-bold text-xl text-primary tracking-wide">凋零花落</span>
+            </a>
+            
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#about" class="text-slate-500 hover:text-primary font-medium transition-colors">关于我</a>
+                <a href="#skills" class="text-slate-500 hover:text-primary font-medium transition-colors">技能</a>
+                <a href="#projects" class="text-slate-500 hover:text-primary font-medium transition-colors">项目</a>
+                <a href="#contact" class="px-5 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-full hover:shadow-lg hover:shadow-pink-300 transition-all font-medium transform hover:-translate-y-0.5">联系我</a>
+            </div>
+            
+            <button id="menuBtn" class="md:hidden text-primary text-2xl">
+                <i class="fa fa-bars"></i>
+            </button>
+        </div>
+        
+        <div id="mobileMenu" class="md:hidden bg-white/95 hidden border-t border-pink-100">
+            <div class="container mx-auto px-4 py-4 flex flex-col space-y-4">
+                <a href="#about" class="text-slate-600 hover:text-primary py-2">关于我</a>
+                <a href="#skills" class="text-slate-600 hover:text-primary py-2">技能</a>
+                <a href="#projects" class="text-slate-600 hover:text-primary py-2">项目</a>
+                <a href="#contact" class="text-primary font-bold py-2">联系我</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 英雄区域 -->
+    <header class="relative min-h-screen flex items-center overflow-hidden z-10">
+        <div class="absolute top-[10%] left-[10%] w-64 h-64 bg-primary/20 rounded-full blur-3xl animate-float"></div>
+        <div class="absolute bottom-[10%] right-[10%] w-80 h-80 bg-secondary/20 rounded-full blur-3xl"></div>
+
+        <div class="container mx-auto px-4 pt-16">
+            <div class="flex flex-col items-center text-center">
+                <div class="max-w-4xl">
+                    <span class="inline-block py-1.5 px-4 rounded-full bg-white text-primary border border-pink-100 text-sm font-bold mb-6 shadow-sm animate-float">
+                        <i class="fa fa-heart mr-1"></i> AI Engineer & Developer
+                    </span>
+                    <h1 class="font-display font-bold text-[clamp(2.5rem,6vw,4.5rem)] text-slate-800 leading-tight mb-6">
+                        你好，我是 <span class="gradient-text drop-shadow-sm">凋零花落</span>
+                    </h1>
+                    <p class="text-slate-500 text-[clamp(1rem,1.5vw,1.25rem)] mb-10 max-w-2xl mx-auto leading-relaxed">
+                        阿里云人工智能工程师认证 · 华为开发者小组成员<br>
+                        <span class="text-primary/90 text-base mt-2 block font-medium">Python全栈 | AI Agent | AIGC | 计算机视觉</span>
+                    </p>
+                    <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+                        <a href="#projects" class="bg-gradient-to-r from-primary to-secondary text-white font-bold px-8 py-3.5 rounded-full transition-all transform hover:scale-105 shadow-lg shadow-pink-300/50">
+                            查看项目 <i class="fa fa-magic ml-2"></i>
+                        </a>
+                        <a href="#contact" class="bg-white border-2 border-pink-200 text-primary hover:bg-pink-50 font-bold px-8 py-3.5 rounded-full transition-all">
+                            联系我
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 text-primary/40 animate-bounce-slow">
+                <i class="fa fa-angle-down text-3xl"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- 关于我 -->
+    <section id="about" class="py-24 relative z-10">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="font-display font-bold text-4xl text-slate-800 mb-4">关于我</h2>
+                <div class="w-20 h-1.5 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mt-4"></div>
+                <p class="mt-4 text-slate-500 max-w-2xl mx-auto text-lg">
+                    不仅仅是写代码，更是描绘未来的专家。
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="group bg-white p-8 rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-pink-200/50 border border-pink-50 hover:border-pink-200 hover:-translate-y-1">
+                    <div class="w-14 h-14 bg-pink-50 rounded-xl flex items-center justify-center text-primary text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa fa-certificate"></i>
+                    </div>
+                    <h3 class="font-bold text-2xl text-slate-800 mb-4">阿里云认证工程师</h3>
+                    <p class="text-slate-600 text-base leading-7">
+                        获得 <span class="text-slate-800 font-bold bg-pink-100 px-1 rounded">阿里巴巴官方认证</span> 的人工智能工程师资格。精通深度学习与NLP技术，具备将理论模型转化为 <span class="text-primary font-bold">商业落地产品</span> 的实战能力。
+                    </p>
+                </div>
+
+                <div class="group bg-white p-8 rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-pink-200/50 border border-pink-50 hover:border-pink-200 hover:-translate-y-1">
+                    <div class="w-14 h-14 bg-purple-50 rounded-xl flex items-center justify-center text-secondary text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa fa-users"></i>
+                    </div>
+                    <h3 class="font-bold text-2xl text-slate-800 mb-4">华为开发者小组成员</h3>
+                    <p class="text-slate-600 text-base leading-7">
+                        专注鸿蒙生态技术探索与实践，紧跟技术前沿，助力生态创新与发展。HDG <span class="text-slate-800 font-bold bg-purple-100 px-1 rounded">鸿蒙开发</span> 领域，始终保持技术敏锐度。
+                    </p>
+                </div>
+
+                <div class="group bg-white p-8 rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-pink-200/50 border border-pink-50 hover:border-pink-200 hover:-translate-y-1">
+                    <div class="w-14 h-14 bg-yellow-50 rounded-xl flex items-center justify-center text-accent text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa fa-code"></i>
+                    </div>
+                    <h3 class="font-bold text-2xl text-slate-800 mb-4">AI全栈工程师</h3>
+                    <p class="text-slate-600 text-base leading-7">
+                        拒绝做只会调包的工程师。从 <span class="text-slate-800 font-bold bg-yellow-100 px-1 rounded">前端交互</span> 到 <span class="text-slate-800 font-bold bg-yellow-100 px-1 rounded">后端架构</span>，再到 <span class="text-slate-800 font-bold bg-yellow-100 px-1 rounded">模型部署</span>，我能独立闭环完成复杂的AI系统开发。
+                    </p>
+                </div>
+
+                <div class="group bg-white p-8 rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-pink-200/50 border border-pink-50 hover:border-pink-200 hover:-translate-y-1">
+                    <div class="w-14 h-14 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa fa-graduation-cap"></i>
+                    </div>
+                    <h3 class="font-bold text-2xl text-slate-800 mb-4">金牌技术讲师</h3>
+                    <p class="text-slate-600 text-base leading-7">
+                        拥有丰富的分公司培训经验。擅长将复杂的AI黑盒逻辑拆解为 <span class="text-slate-800 font-bold bg-indigo-100 px-1 rounded">通俗易懂</span> 的业务语言，帮助非技术团队快速理解并应用新技术。
+                    </p>
+                </div>
+
+                <div class="group bg-white p-8 rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-pink-200/50 border border-pink-50 hover:border-pink-200 hover:-translate-y-1">
+                    <div class="w-14 h-14 bg-rose-50 rounded-xl flex items-center justify-center text-rose-500 text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa fa-briefcase"></i>
+                    </div>
+                    <h3 class="font-bold text-2xl text-slate-800 mb-4">团队管理能力</h3>
+                    <p class="text-slate-600 text-base leading-7">
+                        具备小团队带队经验。擅长 <span class="text-slate-800 font-bold bg-rose-100 px-1 rounded">项目统筹</span> 与资源协调，确保项目按时、高质量交付，不仅写好代码，更能带好队伍。
+                    </p>
+                </div>
+
+                <div class="group bg-white p-8 rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-pink-200/50 border border-pink-50 hover:border-pink-200 hover:-translate-y-1">
+                    <div class="w-14 h-14 bg-teal-50 rounded-xl flex items-center justify-center text-teal-500 text-3xl mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa fa-rocket"></i>
+                    </div>
+                    <h3 class="font-bold text-2xl text-slate-800 mb-4">前沿技术视野</h3>
+                    <p class="text-slate-600 text-base leading-7">
+                        保持对 <span class="text-slate-800 font-bold bg-teal-100 px-1 rounded">顶会论文</span> 的持续追踪，活跃于各大AI开发者社群中，有着时代最前沿的视野。确保企业的技术方案始终处于行业领先地位。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 技能展示 -->
+    <section id="skills" class="py-24 z-10 relative">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="font-display font-bold text-4xl text-slate-800 mb-4">技能武器库</h2>
+                <div class="w-20 h-1.5 bg-gradient-to-r from-primary to-secondary rounded-full mx-auto mt-4"></div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-white hover:border-primary/30 hover:shadow-lg hover:shadow-pink-100 transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <i class="fa fa-robot text-5xl text-primary/80"></i>
+                        <span class="bg-pink-100 text-primary text-xs font-bold px-2 py-1 rounded-md">EXPERT</span>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-slate-800">AI Agent 全栈</h3>
+                    <p class="text-slate-500 text-sm mb-4">自研Agent架构，集成RAG、上下文记忆、永久记忆、异步并发。FastAPI+Nginx高并发支撑。</p>
+                </div>
+
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-white hover:border-secondary/30 hover:shadow-lg hover:shadow-pink-100 transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <i class="fa fa-eye text-5xl text-secondary/80"></i>
+                        <span class="bg-purple-100 text-secondary text-xs font-bold px-2 py-1 rounded-md">CV</span>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-slate-800">计算机视觉体系</h3>
+                    <p class="text-slate-500 text-sm mb-4">精通OpenCV, OCR, YOLO, FFmpeg等。已有落地AI广告视频自动化生成系统，图像批量制作系统，实现素材批量制作成投放广告视频。</p>
+                </div>
+                
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-white hover:border-pink-400/30 hover:shadow-lg hover:shadow-pink-100 transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <i class="fa fa-paint-brush text-5xl text-pink-400"></i>
+                        <span class="bg-rose-100 text-pink-500 text-xs font-bold px-2 py-1 rounded-md">AIGC</span>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-slate-800">AIGC & ComfyUI</h3>
+                    <p class="text-slate-500 text-sm mb-4">Stable Diffusion模型训练，ComfyUI工作流搭建。自研抠图/缩放等特制插件。应用于插画、换脸、详情页等。</p>
+                </div>
+
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-white hover:border-slate-400/30 hover:shadow-lg hover:shadow-slate-200 transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <i class="fa fa-cogs text-5xl text-slate-300"></i>
+                        <span class="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded-md">AUTO</span>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-slate-800">RPA 自动化</h3>
+                    <p class="text-slate-500 text-sm mb-4">精通影刀、Automa及Python脚本。实现运营日报、日均两万条视频爬取等业务流程全自动化。</p>
+                </div>
+
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-white hover:border-slate-400/30 hover:shadow-lg hover:shadow-slate-200 transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <i class="fa fa-microphone text-5xl text-slate-300"></i>
+                        <span class="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded-md">VOICE</span>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-slate-800">PYTHON软件全栈</h3>
+                    <p class="text-slate-500 text-sm mb-4">精通python，实现过多种企业内部提效软件，如视频批量软件，图片批量软件，考勤软件，数据库软件等。全程独立开发。</p>
+                </div>
+
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-white hover:border-slate-400/30 hover:shadow-lg hover:shadow-slate-200 transition-all duration-300 hover:-translate-y-1">
+                    <div class="flex justify-between items-start mb-4">
+                        <i class="fa fa-database text-5xl text-slate-300"></i>
+                        <span class="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded-md">DATA</span>
+                    </div>
+                    <h3 class="font-bold text-xl mb-3 text-slate-800">大数据处理与算法</h3>
+                    <p class="text-slate-500 text-sm mb-4">深入向量数据库与构建大数据处理算法，每月快速处理千万级财务数据。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 项目展示 -->
+    <section id="projects" class="py-24 relative z-10">
+        <div class="container mx-auto px-4 relative z-20">
+            <div class="text-center mb-16">
+                <h2 class="font-display font-bold text-4xl mb-4 text-slate-800">精选项目</h2>
+                <div class="w-20 h-1.5 bg-primary rounded-full mx-auto mt-4"></div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl mb-6">
+                            <i class="fa fa-brain"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">智能Agent系统</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">独立研发企业级Agent，支持RAG知识库、永久记忆、异步架构。已集成虚拟形象驱动。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">FULL_STACK</span>
+                            <a href="https://my.feishu.cn/wiki/YGxWw8IeAimCDfkyfNucRhsknab?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-2xl mb-6">
+                            <i class="fa fa-video-camera"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">AI广告视频流水线</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">基于comfyui的生成模型，CV算法与FFmpeg等技术。实现自动化素材处理、特效合成、换脸、真人转动漫等技术。大幅降低视频制作成本。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">AUTOMATION</span>
+                            <a href="https://my.feishu.cn/wiki/QlFPwijqCifUkjkXyQDc4MLzneg?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-pink-100 flex items-center justify-center text-pink-500 text-2xl mb-6">
+                            <i class="fa fa-image"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">AIGC 商业工作流</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">Stable Diffusion/ComfyUI深度应用。Icon设计、插画、换脸、全流程自动化。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">GENERATIVE</span>
+                            <a href="https://my.feishu.cn/wiki/ZDGawMKAIiYXxJkqLu6cRXlvncg?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-2xl mb-6">
+                            <i class="fa fa-cogs"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">RPA 自动化矩阵</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">编写影刀流程。包含百度运营日报自动生成、淘宝视频批量拉取、自动批量化下载流程每日可快速下载两万条视频等流程，解放人工大量的重复劳动。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">RPA</span>
+                            <a href="https://my.feishu.cn/wiki/VtHiwPyPBi9v89kAm0ZcgDJ7nng?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-2xl mb-6">
+                            <i class="fa fa-microphone"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">Automa自动化流程</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">Automa批量解析下载视频，批量下载并重命名视频等流程，用于进行浏览器自动化操作。与手动输入、点击和从网站检索数据相比，Automa 将自动快速批量化执行这些操作。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">AUDIO</span>
+                            <a href="https://my.feishu.cn/wiki/B5kfwEfk9iWl24kOKFacw4bln1f?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-2xl mb-6">
+                            <i class="fa fa-database"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">大数据处理与算法</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">大数据批量导入、数据库优化，实现快速数据处理和分析，写算法快速计算处理数千万级数据。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">BACKEND</span>
+                            <a href="https://my.feishu.cn/wiki/U30gwWKv8ii4WPkPpeMckDCznWs?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl mb-6">
+                            <i class="fa fa-cube"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">3D模型资产生成</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">基于AI技术的3D模型自动生成系统，支持多种格式导出，为游戏和虚拟现实项目提供高效资产创建方案。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">3D</span>
+                            <a href="https://my.feishu.cn/wiki/NbDHw8cfhiaCpJkrHzKcxwRXnbl?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-2xl mb-6">
+                            <i class="fa fa-calendar-check-o"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">考勤软件</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">系统专为企业考勤数据自动化处理设计，提供高效、准确的考勤记录分析和统计功能，提高企业管理效率。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">HR</span>
+                            <a href="https://my.feishu.cn/wiki/UACnweBSvizIyZk1KCEcjzxWnOh?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-pink-100 flex items-center justify-center text-pink-500 text-2xl mb-6">
+                            <i class="fa fa-picture-o"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">图片批量处理工具</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">综合性的图片处理工具集，包含多个独立的图像处理应用程序。核心功能是基于深度学习的计算机视觉应用，采用预训练的美学评估模型对图像进行自动化美学质量评分，同时提供多种实用的图像处理工具。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">TOOL</span>
+                            <a href="https://my.feishu.cn/wiki/Hm12wPvZSiVqEUkcIIHcF8KQnHf?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-2xl mb-6">
+                            <i class="fa fa-shopping-bag"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">TikTok后台商家管理系统</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">专为TikTok跨境商家企业打造的后台管理系统，用于管理多店铺，接入tiktok API 实现订单管理、数据分析、营销工具等功能。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">E-COMMERCE</span>
+                            <a href="https://my.feishu.cn/wiki/NWh5wI7rPiNgvlkWj9ucPK1yn1U" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-2xl mb-6">
+                            <i class="fa fa-language"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">AI翻译器</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">基于 Whisper Large V3 Turbo CT2 模型和 Faster Whisper 架构的高性能语音转文本 Web 应用，提供企业级的语音识别服务。采用现代化的 FastAPI + Nginx + Uvicorn 技术栈，支持分离式架构和智能请求队列系统。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">AI</span>
+                            <a href="https://my.feishu.cn/wiki/RIuKwjEEqiXAIEkXzF2cxyIsnr5?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-2xl overflow-hidden border border-pink-50 shadow-md hover:shadow-xl hover:shadow-pink-200/40 transition-all duration-300 hover:-translate-y-2">
+                    <div class="p-8">
+                        <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-2xl mb-6">
+                            <i class="fa fa-briefcase"></i>
+                        </div>
+                        <h3 class="font-bold text-xl mb-3 text-slate-800">AI品牌衣服项目落地</h3>
+                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">利用AI技术实现服装品牌的智能化设计、生产和营销，打造全流程数字化解决方案。</p>
+                        <div class="flex justify-between items-center border-t border-slate-100 pt-4">
+                            <span class="text-accent text-xs font-bold font-display tracking-wider">BRAND</span>
+                            <a href="https://my.feishu.cn/wiki/PeWQwefx9iaOSTknDNIcj73cnAf?from=from_copylink" target="_blank" class="text-primary hover:text-secondary transition-colors text-sm font-bold flex items-center">
+                                详情 <i class="fa fa-angle-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 联系我 -->
+    <section id="contact" class="py-24 relative z-10">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 class="font-display font-bold text-4xl text-slate-800 mb-6">联系我</h2>
+                    <p class="text-slate-500 mb-8 leading-relaxed">
+                        准备好用AI改变世界了吗？<br>无论是技术探讨、项目合作还是职位邀约，欢迎随时联系。
+                    </p>
+                    
+                    <div class="space-y-6">
+                        <div class="flex items-center group">
+                            <div class="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors shadow-sm">
+                                <i class="fa fa-envelope"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-sm font-bold text-slate-400 uppercase">Email</h4>
+                                <p class="text-slate-800 font-medium">1448819083@qq.com</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center group">
+                            <div class="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors shadow-sm">
+                                <i class="fa fa-phone"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-sm font-bold text-slate-400 uppercase">Phone</h4>
+                                <p class="text-slate-800 font-medium">138-0000-0000</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center group">
+                            <div class="w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors shadow-sm">
+                                <i class="fa fa-map-marker"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h4 class="text-sm font-bold text-slate-400 uppercase">Location</h4>
+                                <p class="text-slate-800 font-medium">China, Guangzhou</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-10">
+                        <h4 class="text-sm font-bold text-slate-400 uppercase mb-4">Follow Me</h4>
+                        <div class="flex space-x-4">
+                            <a href="#" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-800 hover:text-white transition-all">
+                                <i class="fa fa-github"></i>
+                            </a>
+                            <a href="#" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-blue-600 hover:text-white transition-all">
+                                <i class="fa fa-linkedin"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-br from-pink-50 to-white p-8 rounded-3xl shadow-xl border border-pink-100">
+                    <form class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-slate-600 text-sm font-bold mb-2">姓名</label>
+                                <input type="text" class="w-full px-4 py-3 rounded-xl bg-white border border-pink-100 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="您的姓名">
+                            </div>
+                            <div>
+                                <label class="block text-slate-600 text-sm font-bold mb-2">邮箱</label>
+                                <input type="email" class="w-full px-4 py-3 rounded-xl bg-white border border-pink-100 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="您的邮箱">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-slate-600 text-sm font-bold mb-2">主题</label>
+                            <input type="text" class="w-full px-4 py-3 rounded-xl bg-white border border-pink-100 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="消息主题">
+                        </div>
+                        <div>
+                            <label class="block text-slate-600 text-sm font-bold mb-2">内容</label>
+                            <textarea rows="4" class="w-full px-4 py-3 rounded-xl bg-white border border-pink-100 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="请输入您的留言..."></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-primary to-secondary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 transition-all transform hover:-translate-y-1 hover:shadow-primary/50">
+                            发送消息 <i class="fa fa-paper-plane ml-2"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="text-slate-600 py-12 border-t border-pink-100 relative z-10">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <span class="text-2xl font-bold font-display text-primary">凋零花落</span>
+                    <p class="text-slate-500 text-sm mt-2">用代码构建智慧未来</p>
+                </div>
+                <div class="text-slate-400 text-sm">
+                    <p>© 2026 凋零花落 版权所有 | Powered by AI</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JS 逻辑 -->
+    <script>
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.add('shadow-md', 'bg-white/95');
+                navbar.classList.remove('bg-white/70');
+            } else {
+                navbar.classList.remove('shadow-md', 'bg-white/95');
+                navbar.classList.add('bg-white/70');
+            }
+        });
+        
+        const menuBtn = document.getElementById('menuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        menuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        (function(){
+            const c=document.getElementById('sakura-canvas'),x=c.getContext('2d'),p=[];
+            let w,h;
+            function r(){w=c.width=window.innerWidth;h=c.height=window.innerHeight;}
+            window.addEventListener('resize',r);r();
+            function cp(){
+                return {
+                    x: Math.random()*w, y: -20, s: Math.random()*5+5, sp: Math.random()*1.5+0.5,
+                    v: Math.random()*2-1, a: Math.random()*6, as: Math.random()*0.05-0.025
+                };
+            }
+            for(let i=0;i<40;i++) p.push(cp());
+            function d(){
+                x.clearRect(0,0,w,h);
+                x.fillStyle='rgba(255,182,193,0.5)';
+                p.forEach((o,i)=>{
+                    o.y+=o.sp; o.x+=Math.sin(o.a)+o.v*0.2; o.a+=o.as;
+                    x.beginPath(); x.ellipse(o.x,o.y,o.s,o.s/2,o.a,0,Math.PI*2); x.fill();
+                    if(o.y>h) p[i]=cp(); 
+                });
+                requestAnimationFrame(d);
+            }
+            d();
+        })();
+
+        const petContainer = document.getElementById('pet-container');
+        const catWrapper = document.getElementById('cat-wrapper');
+        const petBubble = document.getElementById('pet-bubble');
+        let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+        let petX = window.innerWidth / 2, petY = window.innerHeight / 2;
+        let isSleeping = false, idleTimer;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX; mouseY = e.clientY;
+            if(isSleeping) { 
+                isSleeping = false; catWrapper.classList.remove('sleeping'); showBubble("醒了!"); 
+            }
+            clearTimeout(idleTimer); 
+            idleTimer = setTimeout(() => { 
+                isSleeping = true; catWrapper.classList.add('sleeping'); catWrapper.classList.remove('running'); 
+            }, 5000); 
+        });
+
+        function animatePet() {
+            if (isSleeping) { requestAnimationFrame(animatePet); return; }
+            const dx = mouseX - petX; const dy = mouseY - petY; const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 60) {
+                catWrapper.classList.add('running');
+                petX += (dx/dist)*3.5; petY += (dy/dist)*3.5;
+                catWrapper.style.transform = dx<0 ? 'scaleX(-1)' : 'scaleX(1)';
+            } else { catWrapper.classList.remove('running'); }
+            petContainer.style.left = (petX-50)+'px'; petContainer.style.top = (petY-50)+'px';
+            requestAnimationFrame(animatePet);
+        }
+        animatePet();
+
+        function petInteraction() {
+            playTone(800,'sine',0.1); 
+            catWrapper.style.animation = 'petJump 0.4s ease-out';
+            setTimeout(() => catWrapper.style.animation = '', 400);
+            const texts =["喵~", "蹭蹭", "要吃鱼", "写代码!", "加油!"];
+            showBubble(texts[Math.floor(Math.random()*texts.length)]);
+        }
+
+        function showBubble(text) {
+            petBubble.innerText = text; petBubble.classList.add('show'); 
+            setTimeout(() => petBubble.classList.remove('show'), 1500);
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration){
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.value = freq;
+            gain.gain.value = 0.05;
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+    </script>
+</body>
+</html>
